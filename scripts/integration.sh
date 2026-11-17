@@ -4,7 +4,7 @@ cd "$(dirname "$0")/.."
 image=$(sed -n 's/^ *image: \(clickhouse\/clickhouse-server:.*\)$/\1/p' compose.yaml)
 run=beacon-it-$$
 password=$(openssl rand -hex 12)
-cleanup() { docker rm -f "$run-ch" >/dev/null 2>&1 || true; docker network rm "$run" >/dev/null 2>&1 || true; }
+cleanup() { docker rm -fv "$run-ch" >/dev/null 2>&1 || true; docker network rm "$run" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 docker network create "$run" >/dev/null
