@@ -18,7 +18,7 @@
     },
     {
       "id": "community",
-      "name": "Apps of non-customers",
+      "name": "Any app",
       "packages": "*",
       "keys": [
         {

@@ -3,6 +3,7 @@ import asyncio
 import base64
 import datetime
 import json
+import os
 import secrets
 import sys
 from pathlib import Path
@@ -50,7 +51,7 @@ def disable_key(data: dict[str, Any], key: str) -> str:
     raise RegistryError("no such key in the registry")
 
 
-def deploy_command(group: str) -> int:
+def server_command(group: str) -> int:
     if group == "schema":
         problems = schema.verify_copy()
         for problem in problems:
@@ -67,6 +68,9 @@ def deploy_command(group: str) -> int:
                 print(line)
             return 0
         client = storage.connect(settings)
+        if group == "backup":
+            print(f"wrote {storage.backup(client)} to the backups volume")
+            return 0
         if group == "migrate":
             for name in storage.migrate(client):
                 print(f"applied {name}")
@@ -113,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="beacon")
     commands = parser.add_subparsers(dest="group", required=True)
     commands.add_parser("migrate", help="apply new migrations, then check the schema mapping")
+    commands.add_parser("backup", help="back up the database to the backups volume")
     registry_command = commands.add_parser("registry", help="the registry copies in ClickHouse")
     registry_command.add_subparsers(dest="action", required=True).add_parser(
         "load", help="rewrite the copies from BEACON_REGISTRY"
@@ -121,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     geo_command.add_subparsers(dest="action", required=True).add_parser(
         "update", help="install this month's databases into BEACON_GEO_DIR"
     )
-    commands.add_parser("replay", help="store uploads kept as schema_newer (run in ingest)")
+    commands.add_parser("replay", help="store uploads kept as schema_newer")
     schema_command = commands.add_parser("schema", help="the vendored telemetry schema")
     schema_command.add_subparsers(dest="action", required=True).add_parser(
         "check", help="compare the copy with its SHA256SUMS"
@@ -135,10 +140,12 @@ def main(argv: list[str] | None = None) -> int:
     board_save = board_actions.add_parser("save", help="write an export from stdin into a dir")
     board_save.add_argument("dir", type=Path)
     keys = commands.add_parser("keys", help="issue and disable project keys")
+    default = os.environ.get("BEACON_REGISTRY")
+    registry_file: dict[str, Any] = {"type": Path, "default": default, "required": default is None}
     actions = keys.add_subparsers(dest="action", required=True)
 
     add = actions.add_parser("add", help="add a key to a project, creating the project if needed")
-    add.add_argument("--registry", type=Path, required=True)
+    add.add_argument("--registry", **registry_file)
     add.add_argument("--project", required=True, help="project ID")
     add.add_argument("--name", help="project name, for a new project")
     add.add_argument(
@@ -149,14 +156,14 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     disable = actions.add_parser("disable", help="disable a key; its apps get 410 after deploy")
-    disable.add_argument("--registry", type=Path, required=True)
+    disable.add_argument("--registry", **registry_file)
     disable.add_argument("key")
 
     args = parser.parse_args(argv)
     if args.group == "dashboards":
         return dashboards_command(args.action, getattr(args, "dir", Path()))
     if args.group != "keys":
-        return deploy_command(args.group)
+        return server_command(args.group)
     try:
         data = json.loads(args.registry.read_text())
         if args.action == "add":

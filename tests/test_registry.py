@@ -8,9 +8,7 @@ from beacon import cli
 from beacon.registry import Registry, RegistryError
 from tests.helpers import COMMUNITY_KEY, SHOP_KEY, registry
 
-EXAMPLE = json.loads(
-    (Path(__file__).parent.parent / "deploy" / "registry.example.json").read_text()
-)
+EXAMPLE = json.loads((Path(__file__).parent.parent / "registry.example.json").read_text())
 
 
 def test_a_key_names_its_project():

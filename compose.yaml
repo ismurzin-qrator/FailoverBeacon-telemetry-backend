@@ -9,10 +9,9 @@ services:
     environment:
       # Users come from users.d only; otherwise the image rewrites the default user.
       CLICKHOUSE_SKIP_USER_SETUP: "1"
-      CLICKHOUSE_INGEST_PASSWORD_SHA256: ${CLICKHOUSE_INGEST_PASSWORD_SHA256:?run deploy/secrets.sh}
-      CLICKHOUSE_GRAFANA_PASSWORD_SHA256: ${CLICKHOUSE_GRAFANA_PASSWORD_SHA256:?run deploy/secrets.sh}
-      CLICKHOUSE_MIGRATOR_PASSWORD_SHA256: ${CLICKHOUSE_MIGRATOR_PASSWORD_SHA256:?run deploy/secrets.sh}
-      CLICKHOUSE_BACKUP_PASSWORD_SHA256: ${CLICKHOUSE_BACKUP_PASSWORD_SHA256:?run deploy/secrets.sh}
+      CLICKHOUSE_INGEST_PASSWORD: ${CLICKHOUSE_INGEST_PASSWORD:?set in .env}
+      CLICKHOUSE_GRAFANA_PASSWORD: ${CLICKHOUSE_GRAFANA_PASSWORD:?set in .env}
+      CLICKHOUSE_MIGRATOR_PASSWORD: ${CLICKHOUSE_MIGRATOR_PASSWORD:?set in .env}
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - clickhouse-backups:/backups
@@ -36,12 +35,10 @@ services:
       BEACON_REGISTRY: /etc/beacon/registry.json
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_USER: ingest
-      CLICKHOUSE_PASSWORD_FILE: /run/secrets/clickhouse_ingest_password
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_INGEST_PASSWORD}
     volumes:
-      - ${BEACON_REGISTRY_FILE:-./deploy/registry.example.json}:/etc/beacon/registry.json:ro
+      - ${BEACON_REGISTRY_FILE:?set in .env}:/etc/beacon/registry.json:ro
       - geo:/var/lib/beacon/geo:ro
-    secrets:
-      - clickhouse_ingest_password
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:
@@ -55,8 +52,7 @@ services:
     network_mode: host
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./secrets/tls/server.crt:/etc/nginx/tls/server.crt:ro
-      - ./secrets/tls/server.key:/etc/nginx/tls/server.key:ro
+      - ./tls:/etc/nginx/tls:ro
     depends_on:
       - ingest
     restart: unless-stopped
@@ -68,7 +64,8 @@ services:
       dockerfile: grafana/Dockerfile
     image: beacon-grafana:local
     environment:
-      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set in .env}
+      CLICKHOUSE_GRAFANA_PASSWORD: ${CLICKHOUSE_GRAFANA_PASSWORD}
       GF_AUTH_BASIC_PASSWORD_POLICY: "true"
       GF_SNAPSHOTS_ENABLED: "false"
       GF_PUBLIC_DASHBOARDS_ENABLED: "false"
@@ -82,9 +79,6 @@ services:
       GF_LIVE_MAX_CONNECTIONS: "0"
     volumes:
       - grafana-data:/var/lib/grafana
-    secrets:
-      - clickhouse_grafana_password
-      - grafana_admin_password
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:
@@ -95,32 +89,21 @@ services:
   tools:
     image: beacon:local
     profiles: [tools]
+    # Writes the host's registry file.
+    user: root
     environment:
       BEACON_REGISTRY: /etc/beacon/registry.json
       CLICKHOUSE_HOST: clickhouse
       CLICKHOUSE_USER: migrator
-      CLICKHOUSE_PASSWORD_FILE: /run/secrets/clickhouse_migrator_password
-      GRAFANA_PASSWORD_FILE: /run/secrets/grafana_admin_password
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_MIGRATOR_PASSWORD}
+      GRAFANA_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
     volumes:
-      - ${BEACON_REGISTRY_FILE:-./deploy/registry.example.json}:/etc/beacon/registry.json:ro
+      - ${BEACON_REGISTRY_FILE}:/etc/beacon/registry.json
       - geo:/var/lib/beacon/geo
       - ./grafana/dashboards:/etc/beacon/dashboards:ro
-    secrets:
-      - clickhouse_migrator_password
-      - grafana_admin_password
     depends_on:
       - clickhouse
     logging: *logging
-
-secrets:
-  clickhouse_ingest_password:
-    file: ./secrets/clickhouse_ingest_password
-  clickhouse_migrator_password:
-    file: ./secrets/clickhouse_migrator_password
-  clickhouse_grafana_password:
-    file: ./secrets/clickhouse_grafana_password
-  grafana_admin_password:
-    file: ./secrets/grafana_admin_password
 
 volumes:
   clickhouse-data:

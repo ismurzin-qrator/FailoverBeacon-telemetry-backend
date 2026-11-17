@@ -8,7 +8,9 @@ cleanup() { docker rm -f "$run-ch" >/dev/null 2>&1 || true; docker network rm "$
 trap cleanup EXIT
 
 docker network create "$run" >/dev/null
-docker run -d --name "$run-ch" --network "$run" -e CLICKHOUSE_PASSWORD="$password" "$image" >/dev/null
+docker run -d --name "$run-ch" --network "$run" -e CLICKHOUSE_PASSWORD="$password" \
+    -v "$PWD/clickhouse/config.d/backups.xml:/etc/clickhouse-server/config.d/backups.xml:ro" \
+    --tmpfs /backups:mode=1777 "$image" >/dev/null
 for _ in $(seq 60); do
     docker exec "$run-ch" clickhouse-client --password "$password" -q 'SELECT 1' >/dev/null 2>&1 && break
     sleep 1

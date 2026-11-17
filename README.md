@@ -10,46 +10,46 @@ Accepts uploads in the format of the [telemetry schema](https://github.com/ismur
 | `src/beacon/telemetry-schema/` | The schema at a tag; `scripts/copy-schema.sh <repository> <tag>` replaces it |
 | `ingest/`, `clickhouse/`, `nginx/`, `grafana/` | Configuration of each service in `compose.yaml` |
 | `grafana/dashboards/` | Dashboards, exported from Grafana |
-| `deploy/` | Host setup, deploy, dashboard export, secrets, the geo update timer, an example registry |
+| `registry.example.json` | Projects and their keys |
 | `scripts/` | Schema copy, integration tests, load test |
 
 ## Run
 
-On any Docker host:
+Needs Docker with Compose. Copy `.env.example` to `.env` and set the passwords, then:
 
 ```bash
-deploy/secrets.sh
-deploy/dev-tls.sh DNS:localhost
-docker compose up -d --build
+docker compose up -d --build clickhouse ingest grafana
 docker compose run --rm tools beacon migrate
 docker compose run --rm tools beacon registry load
 docker compose run --rm tools beacon dashboards import
 ```
 
-The stack reads `deploy/registry.example.json` unless `BEACON_REGISTRY_FILE` in `.env` names another registry.
-
-## Deploy
-
-An installation is a directory with `registry.json` and `deploy.env`:
+Ingest listens on http://127.0.0.1:8080, Grafana on http://127.0.0.1:3000 (user `admin`). To fill the dashboards with the schema samples:
 
 ```bash
-HOST=root@203.0.113.10
-TLS_NAMES="IP:203.0.113.10"
+uv run scripts/load_test.py http://127.0.0.1:8080/v1/beacon/bbbbbbbbbbbbbbbbbbbbbbbbbb --levels 1 --seconds 5
 ```
 
-A new Debian host is prepared once:
+## Server
+
+nginx serves `https://<host>/v1/beacon/<key>` with the certificate chain and key in `tls/server.crt` and `tls/server.key`. It uses the host network, so it runs on Linux. Point `BEACON_REGISTRY_FILE` at the server's registry and start every service:
 
 ```bash
-ssh <user>@<host> 'bash -s' < deploy/host-setup.sh
+docker compose up -d --build
 ```
 
-The host's SSH key needs read access to this repository, for example as a deploy key. Each release is a pushed tag:
+Then run the three commands above. An upgrade checks out the new version and runs:
 
 ```bash
-deploy/deploy.sh <installation dir> <git tag>
+docker compose build
+docker compose run --rm tools beacon backup
+docker compose run --rm tools beacon migrate
+docker compose up -d --force-recreate
+docker compose run --rm tools beacon registry load
+docker compose run --rm tools beacon dashboards import
 ```
 
-The host checks out the tag in `/opt/beacon`, keeping `secrets/` and `.env`. Then it creates missing secrets, backs up the database and the dashboards, migrates, loads the registry, recreates the services and creates the dashboards Grafana lacks, stopping at the first failed step. Until `secrets/tls/` holds the domain's certificate, a test CA issues one for `TLS_NAMES`.
+`beacon geo update` once a month adds countries and networks to new events.
 
 ## Commands
 
@@ -58,7 +58,9 @@ They run in the `tools` service: `docker compose run --rm tools beacon <command>
 | Command | Does |
 | --- | --- |
 | `migrate` | Applies new migrations, then checks that every schema field has a column of the matching type. An applied migration must not change |
+| `backup` | Backs up the database to the `clickhouse-backups` volume |
 | `registry load` | Copies the projects into ClickHouse for Grafana |
+| `keys add`, `keys disable` | Issue and disable keys in the registry |
 | `geo update` | Installs this month's DB-IP Lite databases (CC BY 4.0); ingest picks them up within a minute |
 | `replay` | Stores uploads kept as `schema_newer` once the backend knows their schema |
 | `schema check` | Compares the schema copy with its `SHA256SUMS` |
@@ -70,25 +72,21 @@ Migrations only add: `CREATE … IF NOT EXISTS`, `ADD COLUMN`, `MODIFY TTL`.
 ## Keys
 
 ```bash
-uv run beacon keys add --registry registry.json --project acme --name "Acme" --package com.acme.app
-uv run beacon keys disable --registry registry.json <key>
+docker compose run --rm tools beacon keys add --project acme --name "Acme" --package com.acme.app
+docker compose run --rm tools beacon keys disable <key>
 ```
 
-`add` creates the project if it is new and prints the beacon URL; `--package '*'` accepts any app. After the deploy, a disabled key gets 410.
+`add` creates the project if it is new and prints the beacon URL; `--package '*'` accepts any app. Ingest reads the registry at start: `docker compose restart ingest` applies the change, and `registry load` shows it in Grafana.
 
 ## Grafana
 
-```bash
-ssh -L 3000:127.0.0.1:3000 <user>@<host>
-```
-
-Then http://localhost:3000, user `admin`, password in `secrets/grafana_admin_password`. Dashboards are edited and saved in Grafana. To keep the changes in git:
+Dashboards are edited and saved in Grafana. To keep the changes in git:
 
 ```bash
-deploy/export-dashboards.sh <installation dir>
+docker compose run --rm -T tools beacon dashboards export | uv run beacon dashboards save grafana/dashboards
 ```
 
-It replaces `grafana/dashboards/` with what Grafana has; commit the result. A deploy never overwrites a dashboard Grafana already has, so a dashboard deleted in Grafana but still in git comes back.
+It replaces `grafana/dashboards/` with what Grafana has. `dashboards import` never overwrites a dashboard Grafana already has.
 
 ## Checks
 
@@ -97,12 +95,6 @@ uv run ruff format --check . && uv run ruff check . && uv run mypy src scripts/l
 ```
 
 On a Docker host, `scripts/integration.sh` runs the integration tests against a throwaway ClickHouse.
-
-The load test sends rising numbers of concurrent uploads, best from the host itself:
-
-```bash
-docker run --rm --network host -v "$PWD:/src" beacon:local python /src/scripts/load_test.py http://127.0.0.1:8080/v1/beacon/<key> --levels 32,64,128
-```
 
 ## License
 

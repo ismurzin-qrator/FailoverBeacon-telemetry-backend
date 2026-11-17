@@ -16,4 +16,4 @@ datasources:
       maxOpenConns: 4
       maxIdleConns: 2
     secureJsonData:
-      password: $__file{/run/secrets/clickhouse_grafana_password}
+      password: $__env{CLICKHOUSE_GRAFANA_PASSWORD}

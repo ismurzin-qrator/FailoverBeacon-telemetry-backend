@@ -45,7 +45,7 @@ def context() -> Context:
 
 
 def registry() -> Registry:
-    return Registry.load(Path(__file__).parent.parent / "deploy" / "registry.example.json")
+    return Registry.load(Path(__file__).parent.parent / "registry.example.json")
 
 
 class FakeClient:

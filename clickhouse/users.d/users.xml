@@ -27,7 +27,7 @@
     <users>
         <default remove="remove"/>
         <ingest>
-            <password_sha256_hex from_env="CLICKHOUSE_INGEST_PASSWORD_SHA256"/>
+            <password from_env="CLICKHOUSE_INGEST_PASSWORD"/>
             <networks><ip>::/0</ip></networks>
             <profile>ingest</profile>
             <quota>default</quota>
@@ -38,7 +38,7 @@
             </grants>
         </ingest>
         <grafana>
-            <password_sha256_hex from_env="CLICKHOUSE_GRAFANA_PASSWORD_SHA256"/>
+            <password from_env="CLICKHOUSE_GRAFANA_PASSWORD"/>
             <networks><ip>::/0</ip></networks>
             <profile>grafana</profile>
             <quota>default</quota>
@@ -50,24 +50,15 @@
             </grants>
         </grafana>
         <migrator>
-            <password_sha256_hex from_env="CLICKHOUSE_MIGRATOR_PASSWORD_SHA256"/>
+            <password from_env="CLICKHOUSE_MIGRATOR_PASSWORD"/>
             <networks><ip>::/0</ip></networks>
             <profile>default</profile>
             <quota>default</quota>
             <grants>
-                <query>GRANT CREATE DATABASE, CREATE TABLE, ALTER, SELECT, INSERT, TRUNCATE ON telemetry.*</query>
-            </grants>
-        </migrator>
-        <backup>
-            <password_sha256_hex from_env="CLICKHOUSE_BACKUP_PASSWORD_SHA256"/>
-            <networks><ip>::/0</ip></networks>
-            <profile>default</profile>
-            <quota>default</quota>
-            <grants>
-                <query>GRANT BACKUP ON telemetry.*</query>
+                <query>GRANT CREATE DATABASE, CREATE TABLE, ALTER, SELECT, INSERT, TRUNCATE, BACKUP ON telemetry.*</query>
                 <!-- backups.allowed_disk limits this to the backups disk. -->
                 <query>GRANT WRITE ON DISK</query>
             </grants>
-        </backup>
+        </migrator>
     </users>
 </clickhouse>

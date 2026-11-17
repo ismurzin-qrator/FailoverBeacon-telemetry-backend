@@ -18,11 +18,11 @@ GZIP = {"Content-Type": "application/x-ndjson", "Content-Encoding": "gzip"}
 
 
 @pytest.fixture(scope="module")
-def settings(tmp_path_factory):
+def settings():
     assert config.DATABASE.startswith("it_"), "integration tests never touch a real database"
-    password = tmp_path_factory.mktemp("secrets") / "password"
-    password.write_text(os.environ["CLICKHOUSE_TEST_PASSWORD"])
-    os.environ.update(BEACON_REGISTRY="unused", CLICKHOUSE_PASSWORD_FILE=str(password))
+    os.environ.update(
+        BEACON_REGISTRY="unused", CLICKHOUSE_PASSWORD=os.environ["CLICKHOUSE_TEST_PASSWORD"]
+    )
     return config.Settings(
         registry=Path("unused"),
         clickhouse_host=os.environ["CLICKHOUSE_TEST_HOST"],
@@ -124,3 +124,14 @@ def test_the_registry_copy_holds_the_projects(sync):
 
     projects = sync.query("SELECT project_id, any_package FROM projects ORDER BY project_id")
     assert projects.result_rows == [("community", True), ("example-shop", False)]
+
+
+def test_a_backup_lands_on_the_backups_disk(sync):
+    name = storage.backup(sync)
+
+    created = sync.query(
+        "SELECT count() FROM system.backups"
+        " WHERE status = 'BACKUP_CREATED' AND name LIKE {n:String}",
+        parameters={"n": f"%{name}%"},
+    )
+    assert created.first_row[0] == 1

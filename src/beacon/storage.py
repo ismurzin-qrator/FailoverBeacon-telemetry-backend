@@ -1,4 +1,5 @@
 import hashlib
+from datetime import UTC, datetime
 from importlib.resources import files
 
 import clickhouse_connect
@@ -61,3 +62,9 @@ def copy_registry(client: Client, registry: Registry) -> None:
         [[p.id, p.name, p.packages is None, sorted(p.packages or ())] for p in registry.projects],
         column_names=["project_id", "name", "any_package", "packages"],
     )
+
+
+def backup(client: Client) -> str:
+    name = f"{DATABASE}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}.zip"
+    client.command(f"BACKUP DATABASE {DATABASE} TO Disk('backups', '{name}')")
+    return name

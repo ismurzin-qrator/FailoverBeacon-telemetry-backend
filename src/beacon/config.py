@@ -22,7 +22,7 @@ class Settings:
             clickhouse_host=os.environ.get("CLICKHOUSE_HOST", "clickhouse"),
             clickhouse_port=int(os.environ.get("CLICKHOUSE_PORT", "8123")),
             clickhouse_user=os.environ.get("CLICKHOUSE_USER", "ingest"),
-            clickhouse_password=Path(_required("CLICKHOUSE_PASSWORD_FILE")).read_text().strip(),
+            clickhouse_password=_required("CLICKHOUSE_PASSWORD"),
         )
 
 

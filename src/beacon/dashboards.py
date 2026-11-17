@@ -25,8 +25,8 @@ class Grafana:
 
     @staticmethod
     def from_env() -> "Grafana":
-        password = Path(os.environ["GRAFANA_PASSWORD_FILE"]).read_text().strip()
-        return Grafana(os.environ.get("GRAFANA_URL", "http://grafana:3000"), password)
+        url = os.environ.get("GRAFANA_URL", "http://grafana:3000")
+        return Grafana(url, os.environ["GRAFANA_ADMIN_PASSWORD"])
 
     def request(self, method: str, path: str, body: Any = None) -> tuple[int, Any]:
         connection = http.client.HTTPConnection(self._host, self._port, timeout=30)
