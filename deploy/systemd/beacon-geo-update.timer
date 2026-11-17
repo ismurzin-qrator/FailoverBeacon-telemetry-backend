@@ -1,0 +1,11 @@
+[Unit]
+Description=Monthly DB-IP Lite update for the beacon
+
+[Timer]
+# DB-IP publishes a month's files in its first days.
+OnCalendar=*-*-03 04:00:00 UTC
+RandomizedDelaySec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

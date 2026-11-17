@@ -1,0 +1,73 @@
+<clickhouse>
+    <profiles>
+        <default>
+            <max_bytes_ratio_before_external_group_by>0.5</max_bytes_ratio_before_external_group_by>
+        </default>
+        <ingest>
+            <profile>default</profile>
+            <!-- Under memory pressure a dashboard query is cancelled before an insert. -->
+            <memory_overcommit_ratio_denominator>0</memory_overcommit_ratio_denominator>
+        </ingest>
+        <grafana>
+            <profile>default</profile>
+            <readonly>1</readonly>
+            <max_execution_time>30</max_execution_time>
+            <max_concurrent_queries_for_user>4</max_concurrent_queries_for_user>
+            <max_result_rows>200000</max_result_rows>
+            <constraints>
+                <!-- The Grafana plugin sets it on every query. -->
+                <max_execution_time>
+                    <max>60</max>
+                    <changeable_in_readonly/>
+                </max_execution_time>
+            </constraints>
+        </grafana>
+    </profiles>
+
+    <users>
+        <default remove="remove"/>
+        <ingest>
+            <password_sha256_hex from_env="CLICKHOUSE_INGEST_PASSWORD_SHA256"/>
+            <networks><ip>::/0</ip></networks>
+            <profile>ingest</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT INSERT ON telemetry.events</query>
+                <query>GRANT INSERT, SELECT ON telemetry.uploads</query>
+                <query>GRANT INSERT, SELECT ON telemetry.rejected_events</query>
+            </grants>
+        </ingest>
+        <grafana>
+            <password_sha256_hex from_env="CLICKHOUSE_GRAFANA_PASSWORD_SHA256"/>
+            <networks><ip>::/0</ip></networks>
+            <profile>grafana</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT SELECT ON telemetry.*</query>
+                <query>GRANT SELECT ON system.parts</query>
+                <query>GRANT SELECT ON system.disks</query>
+                <query>GRANT SELECT ON system.query_log</query>
+            </grants>
+        </grafana>
+        <migrator>
+            <password_sha256_hex from_env="CLICKHOUSE_MIGRATOR_PASSWORD_SHA256"/>
+            <networks><ip>::/0</ip></networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT CREATE DATABASE, CREATE TABLE, ALTER, SELECT, INSERT, TRUNCATE ON telemetry.*</query>
+            </grants>
+        </migrator>
+        <backup>
+            <password_sha256_hex from_env="CLICKHOUSE_BACKUP_PASSWORD_SHA256"/>
+            <networks><ip>::/0</ip></networks>
+            <profile>default</profile>
+            <quota>default</quota>
+            <grants>
+                <query>GRANT BACKUP ON telemetry.*</query>
+                <!-- backups.allowed_disk limits this to the backups disk. -->
+                <query>GRANT WRITE ON DISK</query>
+            </grants>
+        </backup>
+    </users>
+</clickhouse>

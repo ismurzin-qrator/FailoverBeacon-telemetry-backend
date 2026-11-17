@@ -1,0 +1,9 @@
+[Unit]
+Description=Install this month's DB-IP Lite databases for the beacon
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/beacon
+ExecStart=/usr/bin/docker compose run --rm -T tools beacon geo update

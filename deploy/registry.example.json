@@ -1,0 +1,32 @@
+{
+  "beacon_url": "https://beacon.example.com",
+  "projects": [
+    {
+      "id": "example-shop",
+      "name": "Example shop",
+      "packages": [
+        "com.example.shop",
+        "com.example.shop.debug"
+      ],
+      "keys": [
+        {
+          "key": "aaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "enabled": true,
+          "added": "2026-11-13"
+        }
+      ]
+    },
+    {
+      "id": "community",
+      "name": "Apps of non-customers",
+      "packages": "*",
+      "keys": [
+        {
+          "key": "bbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "enabled": true,
+          "added": "2026-11-13"
+        }
+      ]
+    }
+  ]
+}
